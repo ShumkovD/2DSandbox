@@ -200,7 +200,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10}
+  m_LocalPosition: {x: 0, y: 0, z: -25}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -278,18 +278,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4070249bde96a7f42b0a1d3234d270eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapSize: {x: 1000, y: 1000}
-  chunkSize: {x: 50, y: 50}
+  mapSize: {x: 100, y: 200}
+  chunkSize: {x: 10, y: 10}
   chunkAmount: {x: 0, y: 0}
   tileDimensions: {x: 0.4, y: 0.4}
   tilePrefab: {fileID: 6224244097430494322, guid: f476b257a0a89004f9c45c90d069052c, type: 3}
-  smoothness: 150
+  smoothness: 70
   cam: {fileID: 519420031}
   renderingOffset: 4
   additionalMemory: 1
   tilesToBeRendered: {x: 0, y: 0}
   camLD: {x: 0, y: 0}
   camUR: {x: 0, y: 0}
+  upperLayerThickness: 4
+  randomFillPercent: 55
+  seed: 0
+  smoothAmount: 1
   LBIndex: {x: 0, y: 0}
   RUIndex: {x: 0, y: 0}
   renderingLB: {x: 0, y: 0}
