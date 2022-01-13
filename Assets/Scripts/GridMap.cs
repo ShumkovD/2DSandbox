@@ -341,15 +341,20 @@ public class GridMap : MonoBehaviour
         tileIsRendered = new bool[x + renderingOffset, y + renderingOffset];
     }
 
-    Vector2Int CameraLBIndex()
+    Vector2Int GetTilePosition(Vector2 camLD)
     {
         float x = -0.5f * mapSizeF.x;
         float y = -0.5f * mapSizeF.y;
         return new Vector2Int(-(int)((x - camLD.x) / tileDimensions.x) - 1, -(int)((y - camLD.y) / tileDimensions.y) - 1);
     }
 
+    Vector2Int GetTilePosition(Vector3 pos)
+    {
+        float x = -0.5f * mapSizeF.x;
+        float y = -0.5f * mapSizeF.y;
+        return new Vector2Int(-(int)((x - pos.x) / tileDimensions.x) - 1, -(int)((y - pos.y) / tileDimensions.y) - 1);
+    }
 
-    
 
     /// /////////////////////////////////////////////////////////////////////////////////////////
     /// タイルプーリング//////////////////////////////////////////////////////////////////////////
@@ -390,12 +395,12 @@ public class GridMap : MonoBehaviour
                 }
         }
     }
-   
+
     ////////////////
     ////////////////
     ////////////////
 
-   
+
     GameObject CreateTile(Vector3 tilePosition, Vector2Int index, string id, Vector2Int renderingInfo)
     {
         int firstUnactive = 0;
@@ -505,6 +510,9 @@ public class GridMap : MonoBehaviour
         CameraGetAngles();
         //行列に入っている関数を処理する
         UseQueuedFunctions();
+        if (Input.GetMouseButtonDown(0))
+            ChangeTileAtCursor();
+
     }
 
     /// /////////////////////////////////////////////////////////////////////////////////////////
@@ -525,7 +533,7 @@ public class GridMap : MonoBehaviour
         LBIndex = Vector2Int.zero;
         RUIndex = Vector2Int.zero;
         //マップにあるタイルのインデクスを見つける
-        LBIndex = CameraLBIndex();
+        LBIndex = GetTilePosition(camLD);
         RUIndex = new Vector2Int(LBIndex.x + cameraRenderingSizeRaw.x, LBIndex.y + cameraRenderingSizeRaw.y);
         //使っているチャンクを見つける
         chunkLD = GetChunkLD(LBIndex);
@@ -552,7 +560,7 @@ public class GridMap : MonoBehaviour
         while (true)
         {
             //左下のインデクスを探します
-            LBIndex = CameraLBIndex();
+            LBIndex = GetTilePosition(camLD);
             RUIndex = new Vector2Int(LBIndex.x + cameraRenderingSizeRaw.x, LBIndex.y + cameraRenderingSizeRaw.y);
             //チャンク計算
             chunkLD = GetChunkLD(LBIndex - new Vector2Int(renderingOffset, renderingOffset));
@@ -597,6 +605,56 @@ public class GridMap : MonoBehaviour
                 if (!tileIsRendered[xRender, yRender])
                     CreateTile(tilePositions[x, y], new Vector2Int(x, y), mapID[x, y], new Vector2Int(xRender, yRender));
             }
+    }
+
+    /// /////////////////
+    ///  タイルの入れ替え
+    /// /////////////////
+
+    //仮
+    void ChangeTileAtCursor()
+    {
+        Vector2Int index;
+        index = GetTilePosition(cam.ScreenToWorldPoint(Input.mousePosition) + (Vector3)tileDimensions* 1.5f);
+
+        //仮　ー＞インベントリシステムを作るまで
+        ChangingTile(index, "Stone");
+    }
+    //
+    void ChangingTile(Vector2Int index, string id)
+    {
+        //タイルを崩す際
+        if (id == "")
+        {
+            if (id == mapID[index.x, index.y])
+                return;
+
+            mapID[index.x, index.y] = id;
+
+            mapSolid[index.x, index.y] = false;
+        }
+        else
+        {
+            //個体タイルを置く際
+            if (id == mapID[index.x, index.y])
+                return;
+            //上空に置かないために、周りのタイルを確認する
+            int surroundingTile = GetSurroudingTiles(index.x,index.y, false);
+            if (surroundingTile == 0)
+                return;
+            
+            mapID[index.x, index.y] = id;
+            mapSolid[index.x, index.y] = true;
+        }
+        //スプライトを変える
+        for (int i = 0; i < renderedTile.Length; i++)
+        {
+            if(renderedTile[i].tileObject.activeInHierarchy)
+            {
+                if (index == renderedTile[i].index)
+                    ChangingSprite(id, i);
+            }
+        }
     }
 
     private void OnDrawGizmos()
