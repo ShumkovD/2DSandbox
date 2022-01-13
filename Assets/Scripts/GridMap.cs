@@ -7,6 +7,14 @@ using System.Threading;
 
 public class GridMap : MonoBehaviour
 {
+    public static GridMap Instance;
+    private void Awake()
+    {
+        if (Instance != null && this != Instance)
+            Destroy(this);
+        else Instance = this;
+    }
+
     ///
     /// ///
     /// /// /// /// /// /// /// /// /// /// /// /// // /
@@ -29,7 +37,7 @@ public class GridMap : MonoBehaviour
 
     //マップの情報
     string [,]  mapID;
-    bool   [,]  mapSolid;
+    static bool   [,]  mapSolid;
     Vector3[,]  tilePositions;
     bool   [,]  tileIsRendered;
 
@@ -68,6 +76,8 @@ public class GridMap : MonoBehaviour
     //オブジェクトプーリング「タイル」
     static PooledTile[] renderedTile;
     SpriteRenderer[] tileSprite;
+    BoxCollider2D[] tileCollider;
+
 
     /// 
     /// /// 
@@ -238,7 +248,7 @@ public class GridMap : MonoBehaviour
             {
                 for (int y = 0; y < mapXHeight[x]; y++)
                 {
-                    int surroudingTiles = GetSurroudingTiles(x, y, false);
+                    int surroudingTiles = GetSurroudingTiles(x, y);
                     if (surroudingTiles > 4)
                     {
                         mapSolid[x, y] = true;
@@ -254,7 +264,7 @@ public class GridMap : MonoBehaviour
             {
                 for (int y = 0; y <= mapXHeight[x]; y++)
                 {
-                    int surroudingTiles = GetSurroudingTiles(x, y, true);
+                    int surroudingTiles = GetSurroudingTiles(x, y);
                     if (surroudingTiles == 0)
                         mapSolid[x, y] = false;
                 }
@@ -263,7 +273,7 @@ public class GridMap : MonoBehaviour
     }
 
     //周りタイルを計算する
-    int GetSurroudingTiles(int gridX, int gridY, bool includeTile)
+    int GetSurroudingTiles(int gridX, int gridY)
     {
         int surroundTiles = 0;
         for(int nx = gridX - 1; nx <= gridX+1; nx++)
@@ -271,17 +281,7 @@ public class GridMap : MonoBehaviour
             {
                 if(nx>=0 && nx<mapSize.x && ny>=0 &&ny<mapSize.y)
                 {
-                    if (includeTile)
-                    {
-                        if (nx != gridX && ny != gridY)
-                        {
-                            if (mapSolid[nx, ny])
-                            {
-                                surroundTiles++;
-                            }
-                        }
-                    }
-                    else if (nx != gridX || ny != gridY)
+                    if (nx != gridX || ny != gridY)
                     {
                         if (mapSolid[nx, ny])
                         {
@@ -364,9 +364,12 @@ public class GridMap : MonoBehaviour
     {
         renderedTile = new PooledTile[(tilesToBeRendered.x+1) * (tilesToBeRendered.y+1)];
         tileSprite = new SpriteRenderer[(tilesToBeRendered.x + 1) * (tilesToBeRendered.y + 1)];
+        tileCollider = new BoxCollider2D[(tilesToBeRendered.x + 1) * (tilesToBeRendered.y + 1)];
         for (int i = 0; i < renderedTile.Length; i++)
         {
             renderedTile[i].tileObject = Instantiate(tilePrefab) as GameObject;
+            tileCollider[i] = renderedTile[i].tileObject.GetComponent<BoxCollider2D>();
+            tileCollider[i].enabled = false;
             tileSprite[i] = renderedTile[i].tileObject.GetComponent<SpriteRenderer>();
             renderedTile[i].tileObject.SetActive(false);
         }
@@ -419,6 +422,13 @@ public class GridMap : MonoBehaviour
 
             if (renderedTile[i].index == index)
             {
+                int surTile = GetSurroudingTiles(index.x, index.y);
+                if(id == "")
+                    tileCollider[firstUnactive].enabled = false;
+                else if (surTile < 8)
+                     tileCollider[firstUnactive].enabled = true;
+                else tileCollider[firstUnactive].enabled = false;
+
                 ChangingSprite(id, i);
                 if (!renderedTile[i].tileObject.activeInHierarchy)
                 {
@@ -436,6 +446,12 @@ public class GridMap : MonoBehaviour
         if (isFound)
         {
             ChangingSprite(id, firstUnactive);
+            int surTile = GetSurroudingTiles(index.x, index.y);
+            if (id == "")
+                tileCollider[firstUnactive].enabled = false;
+            else if (surTile < 8)
+                 tileCollider[firstUnactive].enabled = true;
+            else tileCollider[firstUnactive].enabled = false;
             tileIsRendered[renderingInfo.x, renderingInfo.y] = true;
             renderedTile[firstUnactive].tileObject.SetActive(true);
             renderedTile[firstUnactive].tileObject.transform.position = tilePosition;
@@ -458,6 +474,7 @@ public class GridMap : MonoBehaviour
                   renderedTile[i].index.y >= lb.y && renderedTile[i].index.y <= ru.y))
             {
                 renderedTile[i].tileObject.SetActive(false);
+                tileCollider[i].enabled = false;
             }
         }
 
@@ -618,19 +635,19 @@ public class GridMap : MonoBehaviour
         index = GetTilePosition(cam.ScreenToWorldPoint(Input.mousePosition) + (Vector3)tileDimensions* 1.5f);
 
         //仮　ー＞インベントリシステムを作るまで
-        ChangingTile(index, "Stone");
+        ChangingTile(index, "");
     }
     //
     void ChangingTile(Vector2Int index, string id)
     {
+        int surroundingTile = 0;
         //タイルを崩す際
         if (id == "")
         {
+           
             if (id == mapID[index.x, index.y])
                 return;
-
             mapID[index.x, index.y] = id;
-
             mapSolid[index.x, index.y] = false;
         }
         else
@@ -639,10 +656,10 @@ public class GridMap : MonoBehaviour
             if (id == mapID[index.x, index.y])
                 return;
             //上空に置かないために、周りのタイルを確認する
-            int surroundingTile = GetSurroudingTiles(index.x,index.y, false);
+            surroundingTile = GetSurroudingTiles(index.x,index.y);
+
             if (surroundingTile == 0)
                 return;
-            
             mapID[index.x, index.y] = id;
             mapSolid[index.x, index.y] = true;
         }
@@ -652,9 +669,43 @@ public class GridMap : MonoBehaviour
             if(renderedTile[i].tileObject.activeInHierarchy)
             {
                 if (index == renderedTile[i].index)
+                {
                     ChangingSprite(id, i);
+                    if (id != "")
+                        tileCollider[i].enabled = false;
+                    else if (surroundingTile < 8)
+                        tileCollider[i].enabled = true;
+                    else tileCollider[i].enabled = false;
+
+                }
             }
+
         }
+        UpdateSurroundingTiles(index);
+    }
+
+    void UpdateSurroundingTiles(Vector2Int index)
+    {
+        for (int nx = index.x - 1; nx <= index.x + 1; nx++)
+            for (int ny = index.y - 1; ny <= index.y + 1; ny++)
+            {
+                if (nx >= 0 && nx < mapSize.x && ny >= 0 && ny < mapSize.y)
+                {
+                    for(int i = 0; i < renderedTile.Length; i++)
+                    {
+                        if (renderedTile[i].tileObject.activeInHierarchy && renderedTile[i].index == new Vector2Int(nx, ny))
+                        { 
+                            int surTiles = GetSurroudingTiles(nx, ny);
+                            Debug.Log(surTiles);
+                            if (surTiles<8 && !(renderedTile[i].id == ""))
+                                tileCollider[i].enabled = true;
+                            else tileCollider[i].enabled = false;
+                        }
+                    }
+
+                  
+                }
+            }
     }
 
     private void OnDrawGizmos()
@@ -668,7 +719,7 @@ public class GridMap : MonoBehaviour
             if(y%chunkSize.y == 0)
                 Gizmos.color = Color.red;
             else Gizmos.color = Color.white;
-            Gizmos.DrawLine(tilePositions[0, y] - (Vector3)tileDimensions, tilePositions[mapSize.x - 1, y] - (Vector3)tileDimensions);
+            Gizmos.DrawLine(tilePositions[0, y] - (Vector3)tileDimensions *0.5f, tilePositions[mapSize.x - 1, y] - (Vector3)tileDimensions * 0.5f);
 
         }
         for (int x = 0; x < mapSize.x; x++)
@@ -676,9 +727,11 @@ public class GridMap : MonoBehaviour
             if (x % chunkSize.x == 0)
                 Gizmos.color = Color.red;
             else Gizmos.color = Color.white;
-            Gizmos.DrawLine(tilePositions[x, 0] - (Vector3)tileDimensions, tilePositions[x, mapSize.y - 1] - (Vector3)tileDimensions);
+            Gizmos.DrawLine(tilePositions[x, 0] - (Vector3)tileDimensions * 0.5f, tilePositions[x, mapSize.y - 1] - (Vector3)tileDimensions * 0.5f);
         }
-
+        for (int i = 0; i < renderedTile.Length; i++)
+            if (tileCollider[i].isActiveAndEnabled)
+                Gizmos.DrawCube(renderedTile[i].tileObject.transform.position, new Vector3(0.8f, 0.8f));
         Gizmos.DrawSphere(renderingRU, 0.1f);
         Gizmos.DrawSphere(renderingLB, 0.1f);
         Gizmos.color = Color.white;
