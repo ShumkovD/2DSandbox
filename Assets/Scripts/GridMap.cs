@@ -71,12 +71,14 @@ public class GridMap : MonoBehaviour
         public GameObject tileObject;
         public Vector2Int index;
         public string id;
+        public SpriteRenderer tileSprite;
+        public BoxCollider2D tileCollider;
+        public int pooledObjectIndex;
     };
 
     //オブジェクトプーリング「タイル」
     static PooledTile[] renderedTile;
-    SpriteRenderer[] tileSprite;
-    BoxCollider2D[] tileCollider;
+
 
 
     /// 
@@ -363,15 +365,14 @@ public class GridMap : MonoBehaviour
     void RenderingPreparation()
     {
         renderedTile = new PooledTile[(tilesToBeRendered.x+1) * (tilesToBeRendered.y+1)];
-        tileSprite = new SpriteRenderer[(tilesToBeRendered.x + 1) * (tilesToBeRendered.y + 1)];
-        tileCollider = new BoxCollider2D[(tilesToBeRendered.x + 1) * (tilesToBeRendered.y + 1)];
         for (int i = 0; i < renderedTile.Length; i++)
         {
             renderedTile[i].tileObject = Instantiate(tilePrefab) as GameObject;
-            tileCollider[i] = renderedTile[i].tileObject.GetComponent<BoxCollider2D>();
-            tileCollider[i].enabled = false;
-            tileSprite[i] = renderedTile[i].tileObject.GetComponent<SpriteRenderer>();
+            renderedTile[i].tileCollider = renderedTile[i].tileObject.GetComponent<BoxCollider2D>();
+            renderedTile[i].tileCollider.enabled = false;
+            renderedTile[i].tileSprite = renderedTile[i].tileObject.GetComponent<SpriteRenderer>();
             renderedTile[i].tileObject.SetActive(false);
+            renderedTile[i].pooledObjectIndex = i;
         }
     }
 
@@ -386,14 +387,14 @@ public class GridMap : MonoBehaviour
             renderedTile[i].id = id;
             if (id == "")
             {
-                tileSprite[i].sprite = null;
+                renderedTile[i].tileSprite.sprite = null;
                 return;
             }
             
             for (int o = 0; o < SpriteManager.sprites.Length; o++)
                 if (id == SpriteManager.sprites[o].name)
                 {
-                    tileSprite[i].sprite = SpriteManager.sprites[o];
+                    renderedTile[i].tileSprite.sprite = SpriteManager.sprites[o];
                     return;
                 }
         }
@@ -424,10 +425,10 @@ public class GridMap : MonoBehaviour
             {
                 int surTile = GetSurroudingTiles(index.x, index.y);
                 if(id == "")
-                    tileCollider[firstUnactive].enabled = false;
+                    renderedTile[i].tileCollider.enabled = false;
                 else if (surTile < 8)
-                     tileCollider[firstUnactive].enabled = true;
-                else tileCollider[firstUnactive].enabled = false;
+                    renderedTile[i].tileCollider.enabled = true;
+                else renderedTile[i].tileCollider.enabled = false;
 
                 ChangingSprite(id, i);
                 if (!renderedTile[i].tileObject.activeInHierarchy)
@@ -448,10 +449,10 @@ public class GridMap : MonoBehaviour
             ChangingSprite(id, firstUnactive);
             int surTile = GetSurroudingTiles(index.x, index.y);
             if (id == "")
-                tileCollider[firstUnactive].enabled = false;
+                renderedTile[firstUnactive].tileCollider.enabled = false;
             else if (surTile < 8)
-                 tileCollider[firstUnactive].enabled = true;
-            else tileCollider[firstUnactive].enabled = false;
+                renderedTile[firstUnactive].tileCollider.enabled = true;
+            else renderedTile[firstUnactive].tileCollider.enabled = false;
             tileIsRendered[renderingInfo.x, renderingInfo.y] = true;
             renderedTile[firstUnactive].tileObject.SetActive(true);
             renderedTile[firstUnactive].tileObject.transform.position = tilePosition;
@@ -474,7 +475,7 @@ public class GridMap : MonoBehaviour
                   renderedTile[i].index.y >= lb.y && renderedTile[i].index.y <= ru.y))
             {
                 renderedTile[i].tileObject.SetActive(false);
-                tileCollider[i].enabled = false;
+                renderedTile[i].tileCollider.enabled = false;
             }
         }
 
@@ -529,7 +530,6 @@ public class GridMap : MonoBehaviour
         UseQueuedFunctions();
         if (Input.GetMouseButtonDown(0))
             ChangeTileAtCursor();
-
     }
 
     /// /////////////////////////////////////////////////////////////////////////////////////////
@@ -596,7 +596,6 @@ public class GridMap : MonoBehaviour
                 //マインスレッドで描画する
                 QueueMainThreadFunction(MapRender);
             }
-           
         }
     }
     //マップ描画
@@ -672,10 +671,10 @@ public class GridMap : MonoBehaviour
                 {
                     ChangingSprite(id, i);
                     if (id != "")
-                        tileCollider[i].enabled = false;
+                        renderedTile[i].tileCollider.enabled = false;
                     else if (surroundingTile < 8)
-                        tileCollider[i].enabled = true;
-                    else tileCollider[i].enabled = false;
+                        renderedTile[i].tileCollider.enabled = true;
+                    else renderedTile[i].tileCollider.enabled = false;
 
                 }
             }
@@ -698,8 +697,8 @@ public class GridMap : MonoBehaviour
                             int surTiles = GetSurroudingTiles(nx, ny);
                             Debug.Log(surTiles);
                             if (surTiles<8 && !(renderedTile[i].id == ""))
-                                tileCollider[i].enabled = true;
-                            else tileCollider[i].enabled = false;
+                                renderedTile[i].tileCollider.enabled = true;
+                            else renderedTile[i].tileCollider.enabled = false;
                         }
                     }
 
@@ -730,7 +729,7 @@ public class GridMap : MonoBehaviour
             Gizmos.DrawLine(tilePositions[x, 0] - (Vector3)tileDimensions * 0.5f, tilePositions[x, mapSize.y - 1] - (Vector3)tileDimensions * 0.5f);
         }
         for (int i = 0; i < renderedTile.Length; i++)
-            if (tileCollider[i].isActiveAndEnabled)
+            if (renderedTile[i].tileCollider.isActiveAndEnabled)
                 Gizmos.DrawCube(renderedTile[i].tileObject.transform.position, new Vector3(0.8f, 0.8f));
         Gizmos.DrawSphere(renderingRU, 0.1f);
         Gizmos.DrawSphere(renderingLB, 0.1f);
