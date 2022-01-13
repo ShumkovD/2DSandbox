@@ -28,6 +28,7 @@ public class GridMap : MonoBehaviour
     public           Vector2Int chunkSize;
     [SerializeField] Vector2Int chunkAmount;
     [Header("Tile Information")]
+    public GameObject parentForCollision;
     public Vector2 tileDimensions;
     public GameObject tilePrefab;
     [Header("Map Generation Information")]
@@ -294,6 +295,21 @@ public class GridMap : MonoBehaviour
             }
         return surroundTiles;
     }
+
+    int GetSurroudingTilesHorVer(int gridX, int gridY)
+    {
+        int surroundTiles = 0;
+  
+        if (mapSolid[gridX - 1, gridY])
+              surroundTiles++;
+        if (mapSolid[gridX + 1, gridY])
+                surroundTiles++;
+        if (mapSolid[gridX, gridY + 1])
+            surroundTiles++;
+        if (mapSolid[gridX, gridY - 1])
+            surroundTiles++;
+        return surroundTiles;
+    }
     //マップは個体マスクを使って、作られている。
     string[,] MapInitID()
     {
@@ -367,7 +383,7 @@ public class GridMap : MonoBehaviour
         renderedTile = new PooledTile[(tilesToBeRendered.x+1) * (tilesToBeRendered.y+1)];
         for (int i = 0; i < renderedTile.Length; i++)
         {
-            renderedTile[i].tileObject = Instantiate(tilePrefab) as GameObject;
+            renderedTile[i].tileObject = Instantiate(tilePrefab, parentForCollision.transform) as GameObject;
             renderedTile[i].tileCollider = renderedTile[i].tileObject.GetComponent<BoxCollider2D>();
             renderedTile[i].tileCollider.enabled = false;
             renderedTile[i].tileSprite = renderedTile[i].tileObject.GetComponent<SpriteRenderer>();
@@ -423,10 +439,10 @@ public class GridMap : MonoBehaviour
 
             if (renderedTile[i].index == index)
             {
-                int surTile = GetSurroudingTiles(index.x, index.y);
+                int surTile = GetSurroudingTilesHorVer(index.x, index.y);
                 if(id == "")
                     renderedTile[i].tileCollider.enabled = false;
-                else if (surTile < 8)
+                else if (surTile < 4)
                     renderedTile[i].tileCollider.enabled = true;
                 else renderedTile[i].tileCollider.enabled = false;
 
@@ -447,10 +463,10 @@ public class GridMap : MonoBehaviour
         if (isFound)
         {
             ChangingSprite(id, firstUnactive);
-            int surTile = GetSurroudingTiles(index.x, index.y);
+            int surTile = GetSurroudingTilesHorVer(index.x, index.y);
             if (id == "")
                 renderedTile[firstUnactive].tileCollider.enabled = false;
-            else if (surTile < 8)
+            else if (surTile < 4)
                 renderedTile[firstUnactive].tileCollider.enabled = true;
             else renderedTile[firstUnactive].tileCollider.enabled = false;
             tileIsRendered[renderingInfo.x, renderingInfo.y] = true;
@@ -594,7 +610,7 @@ public class GridMap : MonoBehaviour
                 prevRUIndex = RUIndex;
                 prevLBIndex = LBIndex;
                 //マインスレッドで描画する
-                QueueMainThreadFunction(MapRender);
+              QueueMainThreadFunction( MapRender);
             }
         }
     }
@@ -602,13 +618,16 @@ public class GridMap : MonoBehaviour
     private void MapRender()
     {
         ////カメラの周りに全てのタイルを設定し直す             
-        ClearPooledObjectsBasedOnPosition(renderingLB, renderingRU);
+        ///
+            ClearPooledObjectsBasedOnPosition(renderingLB, renderingRU);
+
         //画面にタイルを配置すること
         for (int y = LBIndex.y - renderingOffset, yRender = 0; y < RUIndex.y + renderingOffset + 1; y++, yRender++)
             for (int x = LBIndex.x - renderingOffset, xRender = 0; x < RUIndex.x + renderingOffset + 1; x++, xRender++)
             {
                 tileIsRendered[xRender, yRender] = false;
-                CreateTile(tilePositions[x, y], new Vector2Int(x, y), mapID[x, y], new Vector2Int(xRender, yRender));
+                    CreateTile(tilePositions[x, y], new Vector2Int(x, y), mapID[x, y], new Vector2Int(xRender, yRender));
+
             }
         CheckAllRender();
     }
@@ -655,10 +674,11 @@ public class GridMap : MonoBehaviour
             if (id == mapID[index.x, index.y])
                 return;
             //上空に置かないために、周りのタイルを確認する
-            surroundingTile = GetSurroudingTiles(index.x,index.y);
+            surroundingTile = GetSurroudingTilesHorVer(index.x,index.y);
 
             if (surroundingTile == 0)
                 return;
+
             mapID[index.x, index.y] = id;
             mapSolid[index.x, index.y] = true;
         }
@@ -672,7 +692,7 @@ public class GridMap : MonoBehaviour
                     ChangingSprite(id, i);
                     if (id != "")
                         renderedTile[i].tileCollider.enabled = false;
-                    else if (surroundingTile < 8)
+                    else if (surroundingTile < 4)
                         renderedTile[i].tileCollider.enabled = true;
                     else renderedTile[i].tileCollider.enabled = false;
 
@@ -694,9 +714,9 @@ public class GridMap : MonoBehaviour
                     {
                         if (renderedTile[i].tileObject.activeInHierarchy && renderedTile[i].index == new Vector2Int(nx, ny))
                         { 
-                            int surTiles = GetSurroudingTiles(nx, ny);
+                            int surTiles = GetSurroudingTilesHorVer(nx, ny);
                             Debug.Log(surTiles);
-                            if (surTiles<8 && !(renderedTile[i].id == ""))
+                            if (surTiles<4 && !(renderedTile[i].id == ""))
                                 renderedTile[i].tileCollider.enabled = true;
                             else renderedTile[i].tileCollider.enabled = false;
                         }
